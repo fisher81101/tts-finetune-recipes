@@ -1,0 +1,20 @@
+# Bundled framework weights — too large for git (use git-lfs or download separately)
+kokoro-recipe/framework/StyleTTS2/Utils/
+kokoro-recipe/framework/training/kokoro_base.pth
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Training outputs
+xttsv2-recipe/output/
+kokoro-recipe/output/
+kokoro-recipe/eval/
+kokoro-recipe/logs/
+kokoro-recipe/framework/training/train_list.txt
+kokoro-recipe/framework/training/val_list.txt
+kokoro-recipe/framework/training/normalization_samples.txt
+
+# OS
+.DS_Store

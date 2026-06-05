@@ -1,0 +1,5 @@
+TTS>=0.22.0
+trainer>=0.0.36
+torch>=2.1
+torchaudio>=2.1
+tensorboard>=2.10

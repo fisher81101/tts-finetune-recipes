@@ -1,0 +1,11 @@
+# Evaluation sentences — synthesized after each training epoch.
+# Replace these with sentences from YOUR domain.
+# Tips:
+#   - Include edge cases your model will encounter in production
+#   - Mix short and long sentences
+#   - Include any special words/names from your lexicon.json
+The quick brown fox jumps over the lazy dog.
+She sells seashells by the seashore, and the shells she sells are seashells for sure.
+How much wood would a woodchuck chuck if a woodchuck could chuck wood?
+The meeting is scheduled for three thirty PM on Friday afternoon.
+Please send the report to the project manager before end of day.

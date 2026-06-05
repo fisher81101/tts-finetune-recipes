@@ -1,0 +1,26 @@
+torch==2.6.0
+torchaudio==2.6.0
+transformers==4.48.3
+accelerate==1.13.0
+safetensors==0.5.2
+misaki==0.9.4
+phonemizer-fork==3.3.2
+espeakng-loader==0.2.4
+monotonic_align @ git+https://github.com/resemble-ai/monotonic_align.git
+librosa==0.11.0
+soundfile==0.13.1
+gradio==6.13.0
+tensorboard==2.20.0
+huggingface_hub>=0.24.0
+einops>=0.8.2
+einops-exts>=0.0.4
+pyyaml>=6.0.2
+munch>=4.0.0
+num2words>=0.5.14
+tqdm>=4.67.1
+loguru>=0.7.3
+scikit-learn>=1.5.0
+pandas>=2.0.0
+matplotlib>=3.8.0
+numpy==1.26.4
+scipy>=1.11.0

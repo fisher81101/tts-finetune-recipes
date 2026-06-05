@@ -1,0 +1,113 @@
+# =============================================================================
+# Kokoro Fine-Tuning Configuration
+# Edit this file, then run the scripts in order:
+#   python scripts/01_prepare_dataset.py --config configs/config.yml
+#   python scripts/02_train.py --stage 1 --config configs/config.yml --gpu 0
+#   python scripts/02_train.py --stage 2 --config configs/config.yml --gpu 0
+#   python scripts/03_eval_all_epochs.py --config configs/config.yml
+# =============================================================================
+
+# ── DATASET ──────────────────────────────────────────────────────────────────
+dataset:
+  # Your dataset CSV.  Columns: id, target_audio, text
+  csv_path: ./data/train.csv
+
+  # Directory containing your WAV files (named {id}.wav)
+  wavs_dir: ./data/wavs/
+
+  # Validation split (5% = 1 in 20 clips held out)
+  val_ratio: 0.05
+
+  # Random seed for train/val split — keep fixed for reproducibility
+  seed: 42
+
+# ── MODEL ────────────────────────────────────────────────────────────────────
+model:
+  # Base Kokoro-82M weights — already bundled in framework/training/
+  base_model: ./framework/training/kokoro_base.pth
+
+  # Where Stage 1 and Stage 2 checkpoints will be saved
+  log_dir: ./output/kokoro-finetune
+
+  # Subdirectory name under log_dir for this run
+  run_name: kokoro-custom-v1
+
+# ── FRAMEWORK ────────────────────────────────────────────────────────────────
+# StyleTTS2 training framework is bundled here — no cloning needed.
+# Only change these if you move the framework directory.
+framework:
+  styletts2_dir: ./framework/StyleTTS2
+  training_dir: ./framework/training
+
+# ── AUDIO ────────────────────────────────────────────────────────────────────
+# These must match the Kokoro-82M architecture — do not change unless you
+# know what you are doing.
+audio:
+  sr: 24000
+  n_fft: 2048
+  win_length: 1200
+  hop_length: 300
+  n_mels: 80
+  fmin: 0
+  fmax: 8000
+
+# ── STAGE 1 (acoustic warmup) ─────────────────────────────────────────────────
+# Trains: decoder (vocoder), style_encoder, text_encoder, text_aligner, pitch_extractor
+# Duration: ~5-10 min on RTX 4090
+stage1:
+  epochs: 2
+  batch_size: 4          # reduce to 2 if OOM
+  save_freq: 1           # save every N epochs
+  num_workers: 4
+
+# ── STAGE 2 (prosody fine-tuning) ─────────────────────────────────────────────
+# Trains: predictor (duration, F0, energy), predictor_encoder, refines decoder
+# Duration: ~65 min per 10 epochs on RTX 4090
+stage2:
+  epochs: 10
+  batch_size: 2          # reduce to 1 if OOM when GANs activate
+  save_freq: 2           # save every N epochs
+  num_workers: 4
+
+  # Mel frames per training window.  180 frames = ~2.25 sec at 24 kHz/hop=300
+  # Reduce to 120 if your clips are mostly short (< 3 sec)
+  max_len: 180
+
+  # Epoch at which GAN discriminators activate.
+  # 99 = disabled (saves ~4 GB VRAM, good for most fine-tuning runs)
+  # Set to 3 to enable GANs — requires ≥ 24 GB VRAM
+  joint_epoch: 99
+
+  # Reset optimizer/schedule when starting from a checkpoint
+  # Keep true when resuming from a base model or previous run
+  load_only_params: true
+
+  # Whether to load Stage 1 weights as the starting point for Stage 2
+  second_stage_load_pretrained: true
+
+  loss:
+    lambda_mel: 5.0      # mel reconstruction — main perceptual loss
+    lambda_F0: 2.0       # pitch accuracy  (increase to 3.0 for sharper pitch)
+    lambda_ce: 20.0      # duration cross-entropy (phoneme timing)
+    lambda_dur: 1.0      # duration regression
+    lambda_norm: 1.0     # style vector norm regularisation
+    lambda_gen: 1.0      # GAN generator loss (only active when joint_epoch reached)
+    lambda_slm: 1.0      # WavLM semantic discriminator
+    lambda_s2s: 1.0      # sequence-to-sequence loss
+    lambda_mono: 1.0     # monotonic alignment loss
+    lambda_diff: 0.0     # diffusion style loss (disabled)
+    lambda_sty: 0.0      # style reconstruction (disabled)
+
+  optimizer:
+    lr: 0.00005
+    bert_lr: 0.000005
+    ft_lr: 0.00005
+
+# ── G2P (Grapheme-to-Phoneme) ─────────────────────────────────────────────────
+g2p:
+  # espeak language code: en-gb = British English, en-us = American English
+  # Must be the same at training AND eval — mismatching breaks pronunciation
+  language: en-gb
+
+  # Path to your custom lexicon (add domain-specific words here)
+  lexicon: ./scripts/lexicon.json
