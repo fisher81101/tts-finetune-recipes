@@ -5,7 +5,7 @@ The result is a model that speaks in your target voice, with correct pronunciati
 for your domain vocabulary.
 
 > **Example checkpoint trained with this recipe:**
-> [jeevav62/kokoro-82m-indian-en](https://huggingface.co/jeevav62/kokoro-82m-indian-en)
+> [![HuggingFace](https://img.shields.io/badge/🤗%20HuggingFace-kokoro--82m--indian--en-ff6b00?style=flat-square)](https://huggingface.co/jeevav62/kokoro-82m-indian-en)
 > — Kokoro-82M fine-tuned on Indian-English (male voice, 1058 clips)
 
 ---
