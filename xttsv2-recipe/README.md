@@ -6,6 +6,8 @@ The result is a model that speaks in your target voice and handles your domain v
 > **Example checkpoint trained with this recipe:**
 > [![HuggingFace](https://img.shields.io/badge/🤗%20HuggingFace-xtts--v2--indian--en-ff6b00?style=flat-square)](https://huggingface.co/jeevav62/xtts-v2-indian-en)
 > — XTTS v2 fine-tuned on Indian-English (male voice, 1058 clips, step 11074)
+>
+> 🔗 https://huggingface.co/jeevav62/xtts-v2-indian-en
 
 ---
 

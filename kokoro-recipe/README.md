@@ -7,6 +7,8 @@ for your domain vocabulary.
 > **Example checkpoint trained with this recipe:**
 > [![HuggingFace](https://img.shields.io/badge/🤗%20HuggingFace-kokoro--82m--indian--en-ff6b00?style=flat-square)](https://huggingface.co/jeevav62/kokoro-82m-indian-en)
 > — Kokoro-82M fine-tuned on Indian-English (male voice, 1058 clips)
+>
+> 🔗 https://huggingface.co/jeevav62/kokoro-82m-indian-en
 
 ---
 
