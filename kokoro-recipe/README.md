@@ -39,9 +39,9 @@ for your domain vocabulary.
 | Storage | 10 GB | 20 GB |
 
 **Training time** (1000 clips, Stage 1 + Stage 2 with 10 epochs each):
-- RTX 4090 (24 GB): ~75 minutes total
-  - Stage 1: ~8 min
-  - Stage 2 (10 epochs, GAN off): ~65 min
+- RTX 4090 (24 GB): ~75 min Stage 1 + ~3 hours Stage 2
+  - Stage 1: ~75 min
+  - Stage 2 (10 epochs, GAN on): ~3 hours
 
 ---
 

@@ -25,7 +25,7 @@ Fine-tune **Kokoro-82M** — a lightweight StyleTTS2-based TTS model with fast i
 | 📁 Recipe | [kokoro-recipe/](./kokoro-recipe/) |
 | 🤗 Example checkpoint | [![HuggingFace](https://img.shields.io/badge/🤗-kokoro--82m--indian--en-ff6b00?style=flat-square)](https://huggingface.co/jeevav62/kokoro-82m-indian-en) |
 | Hardware | 12–24 GB GPU VRAM |
-| Training time | ~75 minutes (1000 clips, Stage 1 + Stage 2, RTX 4090) |
+| Training time | ~75 min Stage 1 + ~3 hours Stage 2 with GAN (1000 clips, RTX 4090) |
 
 ---
 
