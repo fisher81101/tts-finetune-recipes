@@ -1,0 +1,15 @@
+torch==2.10.0
+torchaudio==2.10.0
+transformers==5.2.0
+tokenizers==0.22.2
+huggingface_hub==1.4.1
+safetensors==0.7.0
+soundfile==0.13.1
+librosa==0.11.0
+tensorboardX==2.6.4
+argbind==0.3.9
+omegaconf==2.3.0
+PyYAML==6.0.3
+datasets==3.6.0
+numpy==2.4.2
+-e git+https://github.com/OpenBMB/VoxCPM.git@acaadb19e99dc91b21fba58ced0dea22d6482fb6#egg=voxcpm

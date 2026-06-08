@@ -1,0 +1,40 @@
+# VoxCPM 1.5 LoRA fine-tune config
+# Tweak this one file, then: python train.py --args.load=config.yaml
+
+pretrained_path: openbmb/VoxCPM1.5     # HF id or local snapshot path
+train_manifest: ./dataset/train.jsonl
+val_manifest: null
+sample_rate: 44100
+batch_size: 2
+grad_accum_steps: 1        # >1 raises effective batch size without raising memory
+num_workers: 2
+num_iters: 2000
+log_interval: 10
+valid_interval: 0
+save_interval: 1000
+learning_rate: 0.0001
+weight_decay: 0.01
+warmup_steps: 100
+max_steps: 2000
+max_batch_tokens: 4096     # batch_size=4 -> each sample capped at 1024 tokens, etc.
+save_path: ./output/lora_run1
+tensorboard: ./logs/lora_run1
+lambdas:
+  loss/diff: 1.0
+  loss/stop: 1.0
+
+# LoRA configuration — what gets adapted
+lora:
+  enable_lm: true          # adapt the language-model backbone
+  enable_dit: true         # adapt the diffusion transformer (acoustic side)
+  enable_proj: false       # leave projection layers frozen
+  r: 16
+  alpha: 32
+  dropout: 0.1
+
+# Distribution options (uncomment to publish a portable checkpoint)
+# - distribute=false (default): lora_config.json stores the local pretrained_path
+# - distribute=true: lora_config.json stores hf_model_id instead, so the
+#   checkpoint is reproducible on any machine that can pull from HF
+# hf_model_id: "openbmb/VoxCPM1.5"
+# distribute: true
