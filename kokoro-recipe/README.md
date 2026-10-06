@@ -386,6 +386,14 @@ If you add words after training, re-run `01_prepare_dataset.py` and retrain.
      output/kokoro-finetune/kokoro-custom-v1/first_stage.pth
   ```
 
+**`CheckpointLoadError: Checkpoint ... did not load cleanly`**
+→ More than 2% of a module's tensors were missing from (or unused in) the checkpoint, so
+  training stopped instead of silently starting from untrained weights. `load_checkpoint`
+  already handles the `module.` prefix that Stage 2 checkpoints carry (they are saved from
+  `DataParallel`-wrapped modules). Check the per-module counts it prints, or run
+  `python scripts/verify_checkpoint_load.py --config configs/config.yml --ckpt <file> --mode stage2_resume --old`.
+  If the mismatch is intended, raise the limit with `KOKORO_MAX_MISSING_FRAC=0.1`.
+
 **Pronunciation is wrong for custom names after training**
 → Add them to `scripts/lexicon.json` BEFORE running `01_prepare_dataset.py`.
   The lexicon is baked into the training data at prep time — adding words after
