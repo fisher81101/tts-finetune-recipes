@@ -105,16 +105,25 @@ class SLMAdversarialLoss(torch.nn.Module):
             )
             loc = torch.cumsum(_dur_pred, dim=0) - _dur_pred / 2
 
-            h = torch.exp(
-                -0.5 * torch.square(t - (l - loc.unsqueeze(-1))) / (self.sig) ** 2
-            )
-
-            out = torch.nn.functional.conv1d(
-                _s2s_pred_org.unsqueeze(0),
-                h.unsqueeze(1),
-                padding=h.shape[-1] - 1,
-                groups=int(_text_length),
-            )[..., :l]
+            # Same values as the original
+            #   h = exp(-0.5 * (t - (l - loc))^2 / sig^2)
+            #   out = conv1d(x, h, padding=l-1, groups=T)[..., :l]
+            # written as an explicit sum, so no grouped cuDNN conv with a huge,
+            # per-sample-varying kernel runs here (that conv's backward can crash
+            # with "CUDA error: an illegal memory access" or cuDNN "unable to find
+            # an engine" in the SLM step, especially on long clips):
+            #   out[t, j] = sum_{m <= j} x[t, m] * exp(-0.5 * (m - j - 1 + loc[t])^2 / sig^2)
+            _D = _s2s_pred_org.shape[-1]
+            _jm = (
+                torch.arange(_D, device=ref_text.device).unsqueeze(0)
+                - torch.arange(l, device=ref_text.device).unsqueeze(1)
+                - 1
+            ).to(_s2s_pred_org.dtype)  # (l, D): m - j - 1
+            _mask = (_jm <= -1).to(_s2s_pred_org.dtype)  # m <= j
+            _g = torch.exp(
+                -0.5 * torch.square(_jm.unsqueeze(0) + loc.view(-1, 1, 1)) / (self.sig) ** 2
+            ) * _mask.unsqueeze(0)  # (T, l, D)
+            out = torch.einsum("tm,tjm->tj", _s2s_pred_org, _g).unsqueeze(0)
             attn_preds.append(F.softmax(out.squeeze(), dim=0))
 
             output_lengths.append(l)

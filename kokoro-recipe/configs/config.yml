@@ -89,6 +89,12 @@ stage2:
   #   min_len: 100
   #   max_len: 500
 
+  # Run the SLM adversarial step without cuDNN: false (default) | true | auto.
+  # Only needed if Stage 2 crashes in the SLM step with "illegal memory access" or
+  # cuDNN "unable to find an engine". auto turns it on when the previous Stage 2
+  # log shows such a crash. Costs roughly 1.8x per SLM step when on.
+  # slm_disable_cudnn: false
+
   # Reset optimizer/schedule when starting from a checkpoint
   # Keep true when resuming from a base model or previous run
   load_only_params: true

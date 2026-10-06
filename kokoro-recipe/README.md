@@ -167,6 +167,7 @@ All training parameters live in **`configs/config.yml`**.
 | `stage2.load_only_params` | `true` | Reset optimizer when resuming. Keep `true` |
 | `stage2.slmadv.batch_percentage` | `0.2` | Share of each batch used for the SLM (WavLM) adversarial step after `joint_epoch`. The step only runs if `batch_percentage * batch_size > 1`, so use `1.0` with `batch_size: 2`. It can never run with `batch_size: 1` |
 | `stage2.slmadv.min_len` / `max_len` | `100` / `500` | Min/max length of the SLM adversarial crop |
+| `stage2.slm_disable_cudnn` | `false` | `true` runs the SLM adversarial step without cuDNN (roughly 1.8x slower per SLM step). `auto` turns it on only when the previous `logs/stage2.log` shows a cuDNN / illegal-memory-access crash. `KOKORO_SLM_NO_CUDNN=1`/`0` overrides it |
 | `stage2.loss.lambda_F0` | `2.0` | Pitch loss weight. Increase to `3.0` for sharper pitch |
 | `stage2.loss.lambda_mel` | `5.0` | Mel reconstruction weight (main loss) |
 | `stage2.loss.lambda_ce` | `20.0` | Duration cross-entropy (phoneme timing) |
@@ -377,6 +378,13 @@ If you add words after training, re-run `01_prepare_dataset.py` and retrain.
 **CUDA out of memory during Stage 2**
 → Reduce `stage2.batch_size` to `1` and ensure `stage2.joint_epoch: 99` (GAN off).
   The WavLM discriminator (activated at joint_epoch) uses ~4 GB extra VRAM.
+
+**Stage 2 crashes after `joint_epoch` with `CUDA error: an illegal memory access` or cuDNN `unable to find an engine`**
+→ This comes from cuDNN in the SLM adversarial step (`loss_gen_lm.backward()`). The grouped
+  `conv1d` in `Modules/slmadv.py` that most often triggers it is now an equivalent `einsum`.
+  If it still happens, set `stage2.slm_disable_cudnn: true` (or `auto`, or
+  `KOKORO_SLM_NO_CUDNN=1`) and resume from the last `epoch_2nd_*.pth`. Only the SLM step
+  runs without cuDNN, at roughly 1.8x its normal cost; the rest of training is unchanged.
 
 **Stage 1 checkpoint not found for Stage 2**
 → Stage 1 writes `epoch_1st_00001.pth`. `02_train.py` looks for `first_stage.pth`.

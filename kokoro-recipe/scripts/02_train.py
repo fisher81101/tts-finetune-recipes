@@ -212,6 +212,40 @@ def warn_if_slm_inactive(cfg: dict) -> None:
         print("       Use batch_size >= 2 with batch_percentage 1.0 (or batch_size >= 6 with 0.2).")
 
 
+_CUDNN_CRASH_PATTERNS = (
+    "illegal memory access",
+    "unable to find an engine",
+    "CUDNN_STATUS",
+    "cuDNN error",
+)
+
+
+def decide_slm_disable_cudnn(cfg: dict, recipe_root: Path) -> bool:
+    """stage2.slm_disable_cudnn: false (default) | true | auto.
+
+    true runs the SLM-adversarial forward/backward with cuDNN disabled (native
+    CUDA kernels, roughly 1.8x slower per SLM step). auto turns that on only if the
+    previous Stage 2 launch's log (logs/stage2.log, read before it is overwritten)
+    shows a cuDNN / illegal-memory-access crash, so relaunching after such a crash
+    takes the safe path while a clean run keeps full speed.
+    """
+    val = cfg["stage2"].get("slm_disable_cudnn", False)
+    if isinstance(val, bool):
+        return val
+    if str(val).lower() != "auto":
+        return str(val).lower() in ("1", "true", "yes", "on")
+    prev_log = recipe_root / "logs" / "stage2.log"
+    try:
+        text = prev_log.read_text(errors="replace")
+    except OSError:
+        return False
+    for pat in _CUDNN_CRASH_PATTERNS:
+        if pat in text:
+            print(f"[auto] {prev_log} shows a '{pat}' crash -> SLM step will run without cuDNN")
+            return True
+    return False
+
+
 def launch(stage: int, gpus: str, config_path: str) -> None:
     cfg = load_config(config_path)
     recipe_root = Path(config_path).parent.parent.resolve()
@@ -229,6 +263,11 @@ def launch(stage: int, gpus: str, config_path: str) -> None:
     styletts_config = make_styletts2_config(cfg, styletts2_dir, training_dir, stage, recipe_root)
     if stage == 2:
         warn_if_slm_inactive(cfg)
+        slm_no_cudnn = decide_slm_disable_cudnn(cfg, recipe_root)
+        sc = yaml.safe_load(styletts_config.read_text())
+        sc["slm_disable_cudnn"] = slm_no_cudnn
+        styletts_config.write_text(yaml.dump(sc, default_flow_style=False, allow_unicode=True))
+        print(f"SLM step cuDNN guard: {'ON' if slm_no_cudnn else 'off'}")
 
     logs_dir = recipe_root / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
