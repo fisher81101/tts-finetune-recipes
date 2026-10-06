@@ -77,15 +77,8 @@ python3.12 --version   # must show 3.12.x
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Build the monotonic_align Cython extension (one-time)
-python -c "
-import subprocess, sys, site, os
-for p in site.getsitepackages():
-    mpath = os.path.join(p, 'monotonic_align')
-    if os.path.isdir(mpath):
-        subprocess.run([sys.executable, 'setup.py', 'build_ext', '--inplace'], cwd=mpath)
-        break
-"
+# 3. Check that monotonic_align imports (pip already builds the extension)
+python -c "from monotonic_align import maximum_path; print('monotonic_align OK')"
 
 # 4. Add your dataset (see data/DATASET_FORMAT.md)
 #    Place WAV files in data/wavs/ and create data/train.csv
@@ -186,17 +179,21 @@ All training parameters live in **`configs/config.yml`**.
 pip install -r requirements.txt
 ```
 
-Then build the Cython extension (required — training will crash without it):
+Then check that the compiled `monotonic_align` extension imports. Current
+`resemble-ai/monotonic_align` builds it during `pip install`; the installed
+package no longer contains a `setup.py`, so a separate `build_ext` step is not needed:
 ```bash
-python -c "
-import subprocess, sys, site, os
-for p in site.getsitepackages():
-    mpath = os.path.join(p, 'monotonic_align')
-    if os.path.isdir(mpath):
-        subprocess.run([sys.executable, 'setup.py', 'build_ext', '--inplace'], cwd=mpath)
-        break
-"
+python -c "from monotonic_align import maximum_path; print('monotonic_align OK')"
 ```
+
+Performance tips:
+- Cap CPU threads, e.g. `export OMP_NUM_THREADS=8 MKL_NUM_THREADS=8`. On large
+  cloud hosts PyTorch otherwise sizes its thread pool from the host's physical
+  core count (128 threads on a 2x 64-core EPYC host), not from the vCPUs your
+  container was given (e.g. 36 vCPUs on a Runpod 4090 pod).
+- On Runpod, create the virtualenv on the container disk (e.g. `/root/venv`), not
+  on the `/workspace` network volume. With the venv on the network volume, Stage 2
+  ran several times slower in testing.
 
 ### Step 2 — Prepare your dataset
 
@@ -344,7 +341,8 @@ If you add words after training, re-run `01_prepare_dataset.py` and retrain.
   Make sure you are using Python 3.12.
 
 **`No module named 'monotonic_align'` or Cython build errors**
-→ Run the build step from Quick Start Step 3 above. Python 3.12 is required.
+→ Reinstall it with `pip install --force-reinstall --no-deps "monotonic_align @ git+https://github.com/resemble-ai/monotonic_align.git"`
+  (needs a C compiler and the Python 3.12 headers), then run the import check from Quick Start Step 3.
 
 **CUDA out of memory during Stage 2**
 → Reduce `stage2.batch_size` to `1` and ensure `stage2.joint_epoch: 99` (GAN off).
