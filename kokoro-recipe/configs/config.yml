@@ -78,6 +78,14 @@ stage2:
   # Set to 3 to enable GANs — requires ≥ 24 GB VRAM
   joint_epoch: 99
 
+  # SLM (WavLM) adversarial step after joint_epoch. It only runs when
+  # batch_percentage * batch_size > 1 (never at batch_size 1), so with
+  # batch_size: 2 set batch_percentage: 1.0.
+  # slmadv:
+  #   batch_percentage: 0.2
+  #   min_len: 100
+  #   max_len: 500
+
   # Reset optimizer/schedule when starting from a checkpoint
   # Keep true when resuming from a base model or previous run
   load_only_params: true
