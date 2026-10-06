@@ -89,6 +89,14 @@ stage2:
   #   min_len: 100
   #   max_len: 500
 
+  # Run the SLM adversarial step without cuDNN: false (default) | true | auto.
+  # Fallback for torch older than the pinned 2.8.0: with torch 2.6.0 (cuDNN 9.1.0)
+  # Stage 2 crashes in the SLM step with "CUDA error: an illegal memory access"
+  # (cuDNN "GET was unable to find an engine" under CUDA_LAUNCH_BLOCKING=1).
+  # Not needed with the pinned torch 2.8.0. auto turns it on only when the previous
+  # logs/stage2.log shows such a crash. Whole Stage 2 steps ran ~1.6x slower with it on.
+  # slm_disable_cudnn: false
+
   # Reset optimizer/schedule when starting from a checkpoint
   # Keep true when resuming from a base model or previous run
   load_only_params: true

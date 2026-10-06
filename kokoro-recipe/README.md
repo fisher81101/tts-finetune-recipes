@@ -36,6 +36,7 @@ for your domain vocabulary.
 | GPU VRAM | 12 GB | 24 GB (RTX 4090) |
 | RAM | 16 GB | 32 GB |
 | Python | **3.12** (required — spacy lacks 3.13 wheels) | 3.12 |
+| PyTorch | **2.8.0** (pinned; CUDA 12.8 wheels, see Step 1) | 2.8.0 |
 | Storage | 10 GB | 20 GB |
 
 **Training time** (1000 clips, Stage 1 + Stage 2 with 10 epochs each):
@@ -167,6 +168,7 @@ All training parameters live in **`configs/config.yml`**.
 | `stage2.load_only_params` | `true` | Reset optimizer when resuming. Keep `true` |
 | `stage2.slmadv.batch_percentage` | `0.2` | Share of each batch used for the SLM (WavLM) adversarial step after `joint_epoch`. The step only runs if `batch_percentage * batch_size > 1`, so use `1.0` with `batch_size: 2`. It can never run with `batch_size: 1` |
 | `stage2.slmadv.min_len` / `max_len` | `100` / `500` | Min/max length of the SLM adversarial crop |
+| `stage2.slm_disable_cudnn` | `false` | Fallback for torch older than the pinned 2.8.0, where the SLM adversarial step can crash in cuDNN (see Troubleshooting). `true` runs only the SLM adversarial forward/backward without cuDNN (whole Stage 2 steps ran ~1.6x slower in testing). `auto` turns it on only when the previous `logs/stage2.log` shows a cuDNN / illegal-memory-access crash. `KOKORO_SLM_NO_CUDNN=1`/`0` overrides it. Not needed with torch 2.8.0 |
 | `stage2.loss.lambda_F0` | `2.0` | Pitch loss weight. Increase to `3.0` for sharper pitch |
 | `stage2.loss.lambda_mel` | `5.0` | Mel reconstruction weight (main loss) |
 | `stage2.loss.lambda_ce` | `20.0` | Duration cross-entropy (phoneme timing) |
@@ -188,6 +190,20 @@ All training parameters live in **`configs/config.yml`**.
 pip install -r requirements.txt
 python scripts/00_download_weights.py
 ```
+
+`requirements.txt` pins `torch==2.8.0` and `torchaudio==2.8.0`. On Linux x86_64 the
+default PyPI wheels for 2.8.0 are CUDA 12.8 builds that bundle cuDNN 9.10.2, so the
+driver must support CUDA 12.8 (`nvidia-smi` should show "CUDA Version: 12.8" or
+higher). To install exactly that build explicitly, or on a machine where pip would
+pick a different one:
+```bash
+pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128
+pip install -r requirements.txt
+```
+Older torch builds are not recommended: with torch 2.6.0 (CUDA 12.4, cuDNN 9.1.0),
+Stage 2 crashes in the SLM adversarial step once `joint_epoch` is reached (see
+Troubleshooting). To upgrade an existing environment, re-run
+`pip install -r requirements.txt`; existing checkpoints load unchanged.
 
 `00_download_weights.py` downloads `Utils/` (ASR, JDC, PL-BERT code and weights)
 from [yl4579/StyleTTS2](https://github.com/yl4579/StyleTTS2) at a pinned commit and
@@ -378,6 +394,18 @@ If you add words after training, re-run `01_prepare_dataset.py` and retrain.
 → Reduce `stage2.batch_size` to `1` and ensure `stage2.joint_epoch: 99` (GAN off).
   The WavLM discriminator (activated at joint_epoch) uses ~4 GB extra VRAM.
 
+**Stage 2 crashes after `joint_epoch` with `CUDA error: an illegal memory access` or cuDNN `GET was unable to find an engine to execute this computation`**
+→ This is a cuDNN failure in the backward pass of the SLM (WavLM) adversarial step
+  (`loss_gen_lm.backward()` in `train_second.py`). It happens with torch 2.6.0
+  (CUDA 12.4, cuDNN 9.1.0), typically within a few hundred SLM steps, and did not
+  happen with torch 2.8.0 (cuDNN 9.10.2). Check your version with
+  `python -c "import torch; print(torch.__version__, torch.backends.cudnn.version())"`
+  (the Stage 2 log also prints it), and upgrade with `pip install -r requirements.txt`.
+  If you must stay on an older torch, set `stage2.slm_disable_cudnn: true` (or
+  `KOKORO_SLM_NO_CUDNN=1`, or `auto` to switch it on only after a crash) and resume
+  from the last `epoch_2nd_*.pth`. Only the SLM adversarial forward/backward runs
+  without cuDNN; whole Stage 2 steps ran about 1.6x slower with it on in testing.
+
 **Stage 1 checkpoint not found for Stage 2**
 → Stage 1 writes `epoch_1st_00001.pth`. `02_train.py` looks for `first_stage.pth`.
   Rename it manually:
@@ -385,6 +413,14 @@ If you add words after training, re-run `01_prepare_dataset.py` and retrain.
   cp output/kokoro-finetune/kokoro-custom-v1/epoch_1st_00001.pth \
      output/kokoro-finetune/kokoro-custom-v1/first_stage.pth
   ```
+
+**`CheckpointLoadError: Checkpoint ... did not load cleanly`**
+→ More than 2% of a module's tensors were missing from (or unused in) the checkpoint, so
+  training stopped instead of silently starting from untrained weights. `load_checkpoint`
+  already handles the `module.` prefix that Stage 2 checkpoints carry (they are saved from
+  `DataParallel`-wrapped modules). Check the per-module counts it prints, or run
+  `python scripts/verify_checkpoint_load.py --config configs/config.yml --ckpt <file> --mode stage2_resume --old`.
+  If the mismatch is intended, raise the limit with `KOKORO_MAX_MISSING_FRAC=0.1`.
 
 **Pronunciation is wrong for custom names after training**
 → Add them to `scripts/lexicon.json` BEFORE running `01_prepare_dataset.py`.
