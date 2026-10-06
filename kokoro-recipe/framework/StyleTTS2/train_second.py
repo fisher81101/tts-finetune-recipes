@@ -545,8 +545,11 @@ def main(config_path):
             if gt.size(-1) < 80:
                 continue
 
-            F0_real, _, _ = model.pitch_extractor(gt.unsqueeze(1))
-            N_real = log_norm(gt.unsqueeze(1)).squeeze(1)
+            # Targets only: pitch_extractor is never stepped in Stage 2.
+            # Same as upstream StyleTTS2 train_second.py (torch.no_grad()).
+            with torch.no_grad():
+                F0_real, _, _ = model.pitch_extractor(gt.unsqueeze(1))
+                N_real = log_norm(gt.unsqueeze(1)).squeeze(1)
 
             s_dur = model.predictor_encoder(
                 st.unsqueeze(1) if multispeaker else gt.unsqueeze(1)
@@ -556,7 +559,11 @@ def main(config_path):
             )
 
             y_rec_gt = wav.unsqueeze(1)
-            y_rec_gt_pred = model.decoder(en, F0_real, N_real, s)
+            # Reconstruction target only (used as the mel target before joint_epoch
+            # and only via .detach() inside SLMAdversarialLoss), so no graph is
+            # needed. Same as upstream StyleTTS2 train_second.py (torch.no_grad()).
+            with torch.no_grad():
+                y_rec_gt_pred = model.decoder(en, F0_real, N_real, s)
 
             if epoch >= joint_epoch:
                 # ground truth from recording
