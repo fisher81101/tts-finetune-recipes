@@ -23,7 +23,8 @@ dataset:
 
 # ── MODEL ────────────────────────────────────────────────────────────────────
 model:
-  # Base Kokoro-82M weights — already bundled in framework/training/
+  # Base Kokoro-82M weights. Not in git: create it with
+  #   python scripts/00_download_weights.py
   base_model: ./framework/training/kokoro_base.pth
 
   # Where Stage 1 and Stage 2 checkpoints will be saved
@@ -33,8 +34,9 @@ model:
   run_name: kokoro-custom-v1
 
 # ── FRAMEWORK ────────────────────────────────────────────────────────────────
-# StyleTTS2 training framework is bundled here — no cloning needed.
-# Only change these if you move the framework directory.
+# StyleTTS2 training scripts are bundled here — no cloning needed.
+# framework/StyleTTS2/Utils/ (ASR, JDC, PL-BERT) is downloaded by
+# scripts/00_download_weights.py. Only change these if you move the framework directory.
 framework:
   styletts2_dir: ./framework/StyleTTS2
   training_dir: ./framework/training

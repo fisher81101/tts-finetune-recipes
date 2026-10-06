@@ -47,24 +47,30 @@ for your domain vocabulary.
 
 ## What's Included
 
-The StyleTTS2 training framework (scripts + pretrained support models) is **bundled** in
-`framework/` — no cloning needed.
+The StyleTTS2 training scripts are **bundled** in `framework/`, so there is no
+need to clone StyleTTS2. The large weight files are **not** in git (they are
+listed in `.gitignore`). Run `scripts/00_download_weights.py` once to fetch them
+(Quick Start step 3):
 
 ```
 framework/
 ├── StyleTTS2/
 │   ├── train_first.py, train_second.py   ← training scripts
 │   ├── models.py, losses.py, ...         ← architecture
-│   └── Utils/
+│   └── Utils/                            ← downloaded: from yl4579/StyleTTS2 (pinned commit)
 │       ├── ASR/epoch_00080.pth           ← alignment model (91 MB)
 │       ├── JDC/bst.t7                    ← pitch extractor (21 MB)
-│       └── PLBERT/step_1000000.t7        ← text encoder (25 MB)
+│       └── PLBERT/step_1000000.t7        ← PL-BERT (25 MB; Kokoro's own BERT weights come from kokoro_base.pth)
 └── training/
     ├── config.json                       ← Kokoro phoneme vocab
-    └── kokoro_base.pth                   ← Kokoro-82M base weights (313 MB)
+    └── kokoro_base.pth                   ← generated: converted from hexgrad/Kokoro-82M kokoro-v1_0.pth (~330 MB)
 ```
 
-Everything needed to train is already here. Just add your dataset and run.
+`kokoro_base.pth` keeps the `bert`, `bert_encoder`, `predictor`, `text_encoder`
+and `decoder` modules of `kokoro-v1_0.pth`, with the `module.` prefix stripped,
+under a `net` key. The training scripts load it with `strict=False`, so a file
+that still has the `module.` prefix would load **nothing** without any error.
+Use the script rather than pointing `model.base_model` at `kokoro-v1_0.pth` directly.
 
 ---
 
@@ -77,28 +83,31 @@ python3.12 --version   # must show 3.12.x
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Check that monotonic_align imports (pip already builds the extension)
+# 3. Download the support models (StyleTTS2 Utils/) and build kokoro_base.pth (one-time)
+python scripts/00_download_weights.py
+
+# 4. Check that monotonic_align imports (pip already builds the extension)
 python -c "from monotonic_align import maximum_path; print('monotonic_align OK')"
 
-# 4. Add your dataset (see data/DATASET_FORMAT.md)
+# 5. Add your dataset (see data/DATASET_FORMAT.md)
 #    Place WAV files in data/wavs/ and create data/train.csv
 
-# 5. (Optional) Edit configs/config.yml to change run name, epochs, batch_size
-#    The framework and base model are already bundled — no paths to set.
+# 6. (Optional) Edit configs/config.yml to change run name, epochs, batch_size
+#    The default paths already point at the files from step 3.
 
-# 6. Prepare dataset (text normalization + G2P)
+# 7. Prepare dataset (text normalization + G2P)
 python scripts/01_prepare_dataset.py --config configs/config.yml
 
-# 7. Stage 1 training (~8 min on RTX 4090)
+# 8. Stage 1 training (~8 min on RTX 4090)
 python scripts/02_train.py --stage 1 --config configs/config.yml --gpu 0
 
-# 8. Stage 2 training (~65 min for 10 epochs on RTX 4090)
+# 9. Stage 2 training (~65 min for 10 epochs on RTX 4090)
 python scripts/02_train.py --stage 2 --config configs/config.yml --gpu 0
 
-# 9. Evaluate all checkpoints (synthesizes test sentences for each epoch)
+# 10. Evaluate all checkpoints (synthesizes test sentences for each epoch)
 python scripts/03_eval_all_epochs.py --config configs/config.yml
 
-# 10. Inference with the best epoch
+# 11. Inference with the best epoch
 python scripts/05_infer.py \
     --voicepack  eval/epoch08/voicepack.pt \
     --checkpoint eval/epoch08/kokoro_converted.pth \
@@ -133,10 +142,10 @@ All training parameters live in **`configs/config.yml`**.
 |---|---|---|
 | `dataset.csv_path` | `./data/train.csv` | Your transcript CSV |
 | `dataset.wavs_dir` | `./data/wavs/` | Your WAV files directory |
-| `model.base_model` | `./framework/training/kokoro_base.pth` | Kokoro-82M base weights (already bundled) |
+| `model.base_model` | `./framework/training/kokoro_base.pth` | Kokoro-82M base weights (created by `scripts/00_download_weights.py`) |
 | `model.log_dir` | `./output/kokoro-finetune` | Where checkpoints are saved |
-| `framework.styletts2_dir` | `./framework/StyleTTS2` | Training scripts (already bundled — don't change) |
-| `framework.training_dir` | `./framework/training` | Vocab + base weights (already bundled — don't change) |
+| `framework.styletts2_dir` | `./framework/StyleTTS2` | Training scripts (bundled) + `Utils/` (downloaded). Don't change |
+| `framework.training_dir` | `./framework/training` | Vocab (bundled) + base weights (generated). Don't change |
 
 ### Stage 1 (acoustic warmup)
 
@@ -177,7 +186,14 @@ All training parameters live in **`configs/config.yml`**.
 
 ```bash
 pip install -r requirements.txt
+python scripts/00_download_weights.py
 ```
+
+`00_download_weights.py` downloads `Utils/` (ASR, JDC, PL-BERT code and weights)
+from [yl4579/StyleTTS2](https://github.com/yl4579/StyleTTS2) at a pinned commit and
+converts `kokoro-v1_0.pth` from [hexgrad/Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)
+into `framework/training/kokoro_base.pth`. Existing files are kept; pass `--force`
+to re-download.
 
 The per-epoch TensorBoard audio samples use misaki's English G2P, which needs the
 spaCy model `en_core_web_sm`. misaki downloads it automatically the first time it
@@ -349,7 +365,10 @@ If you add words after training, re-run `01_prepare_dataset.py` and retrain.
 
 **`No module named 'monotonic_align'` or Cython build errors**
 → Reinstall it with `pip install --force-reinstall --no-deps "monotonic_align @ git+https://github.com/resemble-ai/monotonic_align.git"`
-  (needs a C compiler and the Python 3.12 headers), then run the import check from Quick Start Step 3.
+  (needs a C compiler and the Python 3.12 headers), then run the import check from Quick Start Step 4.
+
+**`No module named 'Utils'`, or file not found for `Utils/...` or `kokoro_base.pth`**
+→ These files are not in git. Run `python scripts/00_download_weights.py` (Quick Start Step 3).
 
 **`Could not load English G2P for TensorBoard inference: No module named 'spacy'`**
 → Training still runs, but TensorBoard audio samples are skipped. Reinstall with
