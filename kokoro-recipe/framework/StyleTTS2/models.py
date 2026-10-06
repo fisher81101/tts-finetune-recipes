@@ -718,10 +718,31 @@ class DurationEncoder(nn.Module):
         return mask
 
 
+class BatchSafeJDCNet(JDCNet):
+    """JDCNet whose F0 output always keeps the batch dimension.
+
+    The stock StyleTTS2 ``JDCNet.forward`` returns ``classifier_out.squeeze()``.
+    With ``num_class=1`` that is meant to drop only the trailing class
+    dimension, but at batch size 1 it also drops the batch dimension, so F0
+    comes back as ``(T,)`` instead of ``(1, T)`` and the decoder's
+    ``torch.cat([asr, F0, N], axis=1)`` fails. ``Utils/`` is not tracked in
+    this repo, so the shape is restored here instead. Batch sizes > 1, and
+    copies of ``Utils/JDC/model.py`` that already use ``squeeze(-1)``, are
+    left unchanged. No parameters are added, so checkpoints load and save
+    exactly as before.
+    """
+
+    def forward(self, x):
+        f0, gan_feature, poolblock_out = super().forward(x)
+        if f0.dim() != 2:
+            f0 = f0.reshape(x.shape[0], -1)
+        return f0, gan_feature, poolblock_out
+
+
 def load_F0_models(path):
     # load F0 model
 
-    F0_model = JDCNet(num_class=1, seq_len=192)
+    F0_model = BatchSafeJDCNet(num_class=1, seq_len=192)
     params = torch.load(path, map_location="cpu")["net"]
     F0_model.load_state_dict(params)
     _ = F0_model.train()
