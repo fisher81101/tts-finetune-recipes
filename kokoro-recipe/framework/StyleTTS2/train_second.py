@@ -8,7 +8,10 @@ from munch import Munch
 import numpy as np
 import torch
 
-torch.autograd.set_detect_anomaly(True)
+# Debug only. Leaving anomaly detection on makes Stage 2 several times slower
+# (it records a stack trace for every autograd op and runs extra NaN checks
+# in backward). Re-enable temporarily when hunting a NaN.
+# torch.autograd.set_detect_anomaly(True)
 
 if getattr(torch, "_original_load", None) is None:
     torch._original_load = torch.load
