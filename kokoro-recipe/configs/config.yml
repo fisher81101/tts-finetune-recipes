@@ -59,6 +59,7 @@ stage1:
   batch_size: 4          # reduce to 2 if OOM
   save_freq: 1           # save every N epochs
   num_workers: 4
+  # max_len: 180         # optional Stage 1 crop window; defaults to stage2.max_len
 
 # ── STAGE 2 (prosody fine-tuning) ─────────────────────────────────────────────
 # Trains: predictor (duration, F0, energy), predictor_encoder, refines decoder

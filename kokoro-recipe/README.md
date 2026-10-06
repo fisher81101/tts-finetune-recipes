@@ -152,6 +152,7 @@ All training parameters live in **`configs/config.yml`**.
 | `stage1.epochs` | `2` | Number of epochs (2 is usually enough) |
 | `stage1.batch_size` | `4` | Reduce to 2 if you run out of GPU memory |
 | `stage1.save_freq` | `1` | Save every N epochs |
+| `stage1.max_len` | `stage2.max_len` | Mel frames per Stage 1 crop window. Falls back to `stage2.max_len` if unset |
 
 ### Stage 2 (prosody fine-tuning)
 

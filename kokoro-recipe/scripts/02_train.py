@@ -97,7 +97,9 @@ def make_styletts2_config(cfg: dict, styletts2_dir: Path, training_dir: Path,
 
     sc = {
         "batch_size":   (stage1_cfg if stage == 1 else stage2_cfg).get("batch_size", 2),
-        "max_len":      s2.get("max_len", 180),
+        # Stage 1 may set its own crop window; otherwise it uses stage2.max_len as before.
+        "max_len":      (stage1_cfg.get("max_len", s2.get("max_len", 180)) if stage == 1
+                         else s2.get("max_len", 180)),
         "epochs":       (stage1_cfg if stage == 1 else stage2_cfg).get("epochs", 10),
         "epochs_1st":   stage1_cfg.get("epochs", 2),
         "epochs_2nd":   stage2_cfg.get("epochs", 10),
