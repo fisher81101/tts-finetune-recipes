@@ -3,7 +3,7 @@ torchaudio==2.6.0
 transformers==4.48.3
 accelerate==1.13.0
 safetensors==0.5.2
-misaki==0.9.4
+misaki[en]==0.9.4
 phonemizer-fork==3.3.2
 espeakng-loader==0.2.4
 monotonic_align @ git+https://github.com/resemble-ai/monotonic_align.git

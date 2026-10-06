@@ -179,6 +179,13 @@ All training parameters live in **`configs/config.yml`**.
 pip install -r requirements.txt
 ```
 
+The per-epoch TensorBoard audio samples use misaki's English G2P, which needs the
+spaCy model `en_core_web_sm`. misaki downloads it automatically the first time it
+runs (this needs `pip` in the environment and internet access). To install it up front:
+```bash
+python -m spacy download en_core_web_sm
+```
+
 Then check that the compiled `monotonic_align` extension imports. Current
 `resemble-ai/monotonic_align` builds it during `pip install`; the installed
 package no longer contains a `setup.py`, so a separate `build_ext` step is not needed:
@@ -343,6 +350,10 @@ If you add words after training, re-run `01_prepare_dataset.py` and retrain.
 **`No module named 'monotonic_align'` or Cython build errors**
 → Reinstall it with `pip install --force-reinstall --no-deps "monotonic_align @ git+https://github.com/resemble-ai/monotonic_align.git"`
   (needs a C compiler and the Python 3.12 headers), then run the import check from Quick Start Step 3.
+
+**`Could not load English G2P for TensorBoard inference: No module named 'spacy'`**
+→ Training still runs, but TensorBoard audio samples are skipped. Reinstall with
+  `pip install -r requirements.txt` (it installs `misaki[en]`, which brings in spaCy).
 
 **CUDA out of memory during Stage 2**
 → Reduce `stage2.batch_size` to `1` and ensure `stage2.joint_epoch: 99` (GAN off).
