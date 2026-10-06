@@ -8,7 +8,10 @@ from munch import Munch
 import numpy as np
 import torch
 
-torch.autograd.set_detect_anomaly(True)
+# Debug only. Leaving anomaly detection on makes Stage 2 several times slower
+# (it records a stack trace for every autograd op and runs extra NaN checks
+# in backward). Re-enable temporarily when hunting a NaN.
+# torch.autograd.set_detect_anomaly(True)
 
 if getattr(torch, "_original_load", None) is None:
     torch._original_load = torch.load
@@ -542,8 +545,11 @@ def main(config_path):
             if gt.size(-1) < 80:
                 continue
 
-            F0_real, _, _ = model.pitch_extractor(gt.unsqueeze(1))
-            N_real = log_norm(gt.unsqueeze(1)).squeeze(1)
+            # Targets only: pitch_extractor is never stepped in Stage 2.
+            # Same as upstream StyleTTS2 train_second.py (torch.no_grad()).
+            with torch.no_grad():
+                F0_real, _, _ = model.pitch_extractor(gt.unsqueeze(1))
+                N_real = log_norm(gt.unsqueeze(1)).squeeze(1)
 
             s_dur = model.predictor_encoder(
                 st.unsqueeze(1) if multispeaker else gt.unsqueeze(1)
@@ -553,7 +559,11 @@ def main(config_path):
             )
 
             y_rec_gt = wav.unsqueeze(1)
-            y_rec_gt_pred = model.decoder(en, F0_real, N_real, s)
+            # Reconstruction target only (used as the mel target before joint_epoch
+            # and only via .detach() inside SLMAdversarialLoss), so no graph is
+            # needed. Same as upstream StyleTTS2 train_second.py (torch.no_grad()).
+            with torch.no_grad():
+                y_rec_gt_pred = model.decoder(en, F0_real, N_real, s)
 
             if epoch >= joint_epoch:
                 # ground truth from recording
@@ -705,10 +715,16 @@ def main(config_path):
                         for p in model[key].parameters()
                         if p.grad is not None and p.requires_grad
                     ]
-                    for p in parameters:
-                        param_norm = p.grad.detach().data.norm(2)
-                        total_norm[key] += param_norm.item() ** 2
-                    total_norm[key] = total_norm[key] ** 0.5
+                    # One GPU->CPU sync per module instead of one per parameter
+                    # tensor (same value: sqrt of the sum of squared L2 norms).
+                    if parameters:
+                        total_norm[key] = (
+                            torch.stack([p.grad.detach().norm(2) for p in parameters])
+                            .pow(2)
+                            .sum()
+                            .sqrt()
+                            .item()
+                        )
 
                 # gradient scaling
                 if total_norm["predictor"] > slmadv_params.thresh:

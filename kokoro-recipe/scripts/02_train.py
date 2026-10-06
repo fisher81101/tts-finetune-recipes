@@ -91,12 +91,15 @@ def make_styletts2_config(cfg: dict, styletts2_dir: Path, training_dir: Path,
     run_name = model_cfg.get("run_name", "kokoro-custom-v1")
 
     s2 = stage2_cfg
+    slm = s2.get("slmadv") or {}
     loss = s2.get("loss", {})
     opt  = s2.get("optimizer", {})
 
     sc = {
         "batch_size":   (stage1_cfg if stage == 1 else stage2_cfg).get("batch_size", 2),
-        "max_len":      s2.get("max_len", 180),
+        # Stage 1 may set its own crop window; otherwise it uses stage2.max_len as before.
+        "max_len":      (stage1_cfg.get("max_len", s2.get("max_len", 180)) if stage == 1
+                         else s2.get("max_len", 180)),
         "epochs":       (stage1_cfg if stage == 1 else stage2_cfg).get("epochs", 10),
         "epochs_1st":   stage1_cfg.get("epochs", 2),
         "epochs_2nd":   stage2_cfg.get("epochs", 10),
@@ -179,7 +182,12 @@ def make_styletts2_config(cfg: dict, styletts2_dir: Path, training_dir: Path,
         "ASR_path":   str(utils_dir / "ASR" / "epoch_00080.pth"),
         "PLBERT_dir": str(utils_dir / "PLBERT"),
         "slmadv_params": {
-            "min_len": 100, "max_len": 500, "batch_percentage": 0.2,
+            "min_len": slm.get("min_len", 100),
+            "max_len": slm.get("max_len", 500),
+            # SLMAdversarialLoss returns None unless it collects >= 2 samples, so the
+            # SLM step only runs if batch_percentage * batch_size > 1
+            # (with the default 0.2 that means batch_size >= 6).
+            "batch_percentage": slm.get("batch_percentage", 0.2),
             "iter": 10, "thresh": 5, "scale": 0.01, "sig": 1.5,
         },
     }
@@ -188,6 +196,20 @@ def make_styletts2_config(cfg: dict, styletts2_dir: Path, training_dir: Path,
     yaml.dump(sc, tf, default_flow_style=False, allow_unicode=True)
     tf.close()
     return Path(tf.name)
+
+
+def warn_if_slm_inactive(cfg: dict) -> None:
+    """Warn when the SLM (WavLM) adversarial step can never run in Stage 2."""
+    s2 = cfg["stage2"]
+    epochs = s2.get("epochs", 10)
+    joint_epoch = s2.get("joint_epoch", 99)
+    batch_size = s2.get("batch_size", 2)
+    pct = (s2.get("slmadv") or {}).get("batch_percentage", 0.2)
+    if joint_epoch < epochs and pct * batch_size <= 1:
+        print(f"[warn] stage2.slmadv.batch_percentage ({pct}) x stage2.batch_size ({batch_size}) <= 1,")
+        print("       so the SLM adversarial step will be skipped on every step after joint_epoch")
+        print("       (and those steps won't be logged, because that path skips the rest of the step).")
+        print("       Use batch_size >= 2 with batch_percentage 1.0 (or batch_size >= 6 with 0.2).")
 
 
 def launch(stage: int, gpus: str, config_path: str) -> None:
@@ -205,6 +227,8 @@ def launch(stage: int, gpus: str, config_path: str) -> None:
     python = sys.executable
 
     styletts_config = make_styletts2_config(cfg, styletts2_dir, training_dir, stage, recipe_root)
+    if stage == 2:
+        warn_if_slm_inactive(cfg)
 
     logs_dir = recipe_root / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)

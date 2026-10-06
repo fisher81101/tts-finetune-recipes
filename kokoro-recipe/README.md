@@ -152,6 +152,7 @@ All training parameters live in **`configs/config.yml`**.
 | `stage1.epochs` | `2` | Number of epochs (2 is usually enough) |
 | `stage1.batch_size` | `4` | Reduce to 2 if you run out of GPU memory |
 | `stage1.save_freq` | `1` | Save every N epochs |
+| `stage1.max_len` | `stage2.max_len` | Mel frames per Stage 1 crop window. Falls back to `stage2.max_len` if unset |
 
 ### Stage 2 (prosody fine-tuning)
 
@@ -162,6 +163,8 @@ All training parameters live in **`configs/config.yml`**.
 | `stage2.max_len` | `180` | Mel frames per window (~2.25 sec). Reduce for short clips |
 | `stage2.joint_epoch` | `99` | Epoch when GAN discriminators turn on. `99` = disabled (saves ~4 GB VRAM). Set to `3` to enable |
 | `stage2.load_only_params` | `true` | Reset optimizer when resuming. Keep `true` |
+| `stage2.slmadv.batch_percentage` | `0.2` | Share of each batch used for the SLM (WavLM) adversarial step after `joint_epoch`. The step only runs if `batch_percentage * batch_size > 1`, so use `1.0` with `batch_size: 2`. It can never run with `batch_size: 1` |
+| `stage2.slmadv.min_len` / `max_len` | `100` / `500` | Min/max length of the SLM adversarial crop |
 | `stage2.loss.lambda_F0` | `2.0` | Pitch loss weight. Increase to `3.0` for sharper pitch |
 | `stage2.loss.lambda_mel` | `5.0` | Mel reconstruction weight (main loss) |
 | `stage2.loss.lambda_ce` | `20.0` | Duration cross-entropy (phoneme timing) |
@@ -212,7 +215,10 @@ you only need to adjust:
 
 **Memory tuning:**
 - 24 GB GPU: `batch_size: 2`, `joint_epoch: 99` (GAN off)
-- 24 GB GPU + GAN: `batch_size: 1`, `joint_epoch: 3`
+- 24 GB GPU + GAN: `batch_size: 1`, `joint_epoch: 3` (the SLM adversarial step
+  can't run at batch size 1; see `stage2.slmadv.batch_percentage`)
+- 48 GB GPU + GAN + SLM: `batch_size: 2`, `max_len: 960`, `slmadv.batch_percentage: 1.0`
+  (peaked at about 38,800 MiB in nvidia-smi on an RTX 6000 Ada with `joint_epoch: 0`)
 - 16 GB GPU: `batch_size: 1`, `joint_epoch: 99`
 
 ### Step 4 — Data prep

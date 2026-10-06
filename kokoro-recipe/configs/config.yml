@@ -59,6 +59,7 @@ stage1:
   batch_size: 4          # reduce to 2 if OOM
   save_freq: 1           # save every N epochs
   num_workers: 4
+  # max_len: 180         # optional Stage 1 crop window; defaults to stage2.max_len
 
 # ── STAGE 2 (prosody fine-tuning) ─────────────────────────────────────────────
 # Trains: predictor (duration, F0, energy), predictor_encoder, refines decoder
@@ -77,6 +78,14 @@ stage2:
   # 99 = disabled (saves ~4 GB VRAM, good for most fine-tuning runs)
   # Set to 3 to enable GANs — requires ≥ 24 GB VRAM
   joint_epoch: 99
+
+  # SLM (WavLM) adversarial step after joint_epoch. It only runs when
+  # batch_percentage * batch_size > 1 (never at batch_size 1), so with
+  # batch_size: 2 set batch_percentage: 1.0.
+  # slmadv:
+  #   batch_percentage: 0.2
+  #   min_len: 100
+  #   max_len: 500
 
   # Reset optimizer/schedule when starting from a checkpoint
   # Keep true when resuming from a base model or previous run
